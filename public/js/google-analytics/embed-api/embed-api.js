@@ -1,0 +1,2 @@
+webpackJsonp([2],[function(t,a,n){"use strict";function e(t){return t&&t.__esModule?t:{"default":t}}function i(){gapi.analytics.auth.authorize=function(){};var t=gapi.analytics.googleCharts.DataChart,a=[];gapi.analytics.googleCharts.DataChart=function(n){var e=new t(n);return a.push(e),e},$(window).on("resize",(0,u["default"])(function(){a.forEach(function(t){try{"TABLE"!=t.get().chart.type&&t.execute()}catch(a){}})},200))}var c=n(4),u=e(c),o=n(3),r=e(o);gapi.analytics.ready(function(){i(),r["default"].setReadyState()})}]);
+//# sourceMappingURL=embed-api.js.map

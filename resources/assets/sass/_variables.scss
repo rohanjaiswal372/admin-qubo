@@ -1,0 +1,56 @@
+
+// Body
+$body-bg: #f5f8fa;
+
+// Borders
+$laravel-border-color: darken($body-bg, 10%);
+$list-group-border: $laravel-border-color;
+$navbar-default-border: $laravel-border-color;
+$panel-default-border: $laravel-border-color;
+$panel-inner-border: $laravel-border-color;
+
+$blue: #1f487c;
+$orange: #FF8B00;
+$text: #6c6c6c;
+
+$nav_color: #214b7a;
+$imn: #214b7a;
+$qubo:#0096FF;
+$ion: #fd8b25;
+$life: #5ac03e;
+
+// Brands
+$brand-primary: #3097D1;
+$brand-info: #8eb4cb;
+$brand-success: #2ab27b;
+$brand-warning: #cbb956;
+$brand-danger:  #bf5329;
+
+// Typography
+//$font-family-sans-serif: "Raleway", sans-serif;
+$font-size-base: 14px;
+$line-height-base: 1.6;
+$text-color: #636b6f;
+
+// Navbar
+$navbar-default-bg: #fff;
+
+// Buttons
+$btn-default-color: $text-color;
+
+// Inputs
+$input-border: lighten($text-color, 40%);
+$input-border-focus: lighten($brand-primary, 25%);
+$input-color-placeholder: lighten($text-color, 30%);
+
+// Panels
+$panel-default-heading-bg: #fff;
+
+$sidenav: #e8e8e8;
+
+$primary_font: 'Montserrat', sans-serif;
+//$primary-font : 'Open Sans Condensed', sans-serif;
+$secondary_font: 'Oswald', sans-serif;
+
+$public_url: 'http://e00da315a735a8fe3a1d-53dd2d41f5e8f71ab7be7bde4d129736.r42.cf5.rackcdn.com';
+$public_url_ssl: 'https://ef4053d636c8c3c65fe5-53dd2d41f5e8f71ab7be7bde4d129736.ssl.cf5.rackcdn.com';

@@ -1,0 +1,666 @@
+<?php 
+ini_set('memory_limit', '-1');
+/**
+ * Nitro API 
+ * Used to communicate to the Bunchball API
+ * 
+ * TODO: Create a good way to manage anonymous users (IONUSER)
+ */
+
+Class NitroAPI {
+	
+	# api information
+	var $secret_key = '';
+	var $api_key = '';
+	var $connection_url = '';
+	var $data_type = 'json'; # how will data be returned by Bunchball, xml is another valid resource however this class only supports json
+	
+	# config data
+	var $bb_session_key = 'bb'; # just encase we want to change this later
+	
+	# session infomration user specific
+	var $session_key = '';
+	var $uid = '';
+	var $fname = 'Visitor';
+	var $lname = '';
+	var $generic_id = '!aabcd123!23#MjXSKJ9389AmEJ#!';
+	var $anon = false;
+	
+	var $Core;
+	var $Config;
+	
+	# whitelist for providers to give points to upon login
+	var $provider_whitelist = array('facebook');
+	
+	# system config
+	var $secret_hash_key = 'MjXSKJ938(AQ*#@Q(!@)#$&DLJDKFNSAEDGFTLHihjLjaL#JDfslkndNM#I#O$*&DljalznlJH#'; # little extra help with hashes & security
+	var $table_users = 'gaming_users_anon';
+	
+	# random
+	var $reset_flag = '';
+	
+	function __construct( $insiders = false, $config = null ){
+		if( !$insiders ){
+			$this->Core =  Registry::getKey('Core');
+			$this->Config = Registry::getKey('Config');	
+		}else{
+			# send API key
+			$this->api_key = $config['api_key'];
+			$this->secret_key = $config['secret_key'];
+			$this->connection_url = $config['connection_url'];
+		}
+	}
+	
+	function setApiKeys($data){
+		$this->secret_key = $data['secret_key'];
+		$this->api_key = $data['api_key'];
+		$this->connection_url = $data['connection_url'];
+	}
+	
+	function getUID(){
+		if( isset($_SESSION[$this->bb_session_key]['ukey']) && !empty( $_SESSION[$this->bb_session_key]['ukey'] )){
+			return $_SESSION[$this->bb_session_key]['ukey'];
+		}elseif( !empty( $this->uid )){
+			return $this->uid;
+		}else{
+			$this->uid = md5($this->generic_id);
+			# if session key is empty, we need to log the base user in.
+			$session_key = $this->getSessionKey();
+			if( empty( $session_key ) ){
+				$this->setNewLogin(array('uid' => $this->generic_id, 'fname' => 'Visitor'));
+			}
+			return $this->uid;
+		}
+	}
+	
+	function setSessionKey($key){
+		$_SESSION[$this->bb_session_key]['skey'] = $key;
+		$this->session_key = $key;
+	}
+	
+	function getSessionKey(){
+		if( isset($_SESSION[$this->bb_session_key]['skey']) && !empty( $_SESSION[$this->bb_session_key]['skey'] )){
+			return $_SESSION[$this->bb_session_key]['skey'];
+		}else{
+			if( !empty($this->session_key ) ){
+				return $this->session_key;
+			}
+			return '';
+		}
+	}
+	
+	function getSignature(){
+		$time = time();
+		$unencryptedSignature = $this->api_key.$this->secret_key.$time.$this->getUID();
+		$length = strlen($unencryptedSignature);
+		$unencryptedSignature = $unencryptedSignature.$length;
+  		$signature = md5($unencryptedSignature);
+  		$result = array('time' => $time, 'signature' => $signature);
+  		return $result;
+	}
+	
+	function isAnonymous(){
+		$bb_session = $_SESSION[$this->bb_session_key];
+		if( isset( $bb_session['anonymous'] ) && $bb_session['anonymous'] ){
+			return true;
+		}
+		return false;
+	}
+	
+	function showLogins(){
+		$query = array(
+				"table" => 'gaming_users_anon'
+			);
+
+		$result = $this->Core->getTable($query);
+		return $result;
+	}
+	
+	function logout(){
+		unset($_SESSION[$this->bb_session_key]['anonymous']);
+		unset($_SESSION[$this->bb_session_key]['skey']);
+		unset($_SESSION[$this->bb_session_key]['ukey']);
+		$this->uid = '';
+		$this->session_key = '';
+	}
+	
+	function generateAnonymousUid(){
+		return false;
+		$endless_loop_help = 200;
+		
+		$hash = '';
+		
+		# generate a unique hash
+		do {
+			$hash = $this->__uniqueHash();
+			
+			$query = array(
+				"select" => "*",
+				"table" => $this->table_users,
+				"where" => "user='".$hash."'",
+				"format" => 'array'
+			);
+
+			$result = $this->Core->get($query);
+			$endless_loop_help--;
+			if($endless_loop_help <= 0){
+				return false;
+				break;
+			}
+		} while( $result );
+		
+		# we have a hash, save it.
+		$data = array(
+			'user' => $hash,
+			'datetime', date('Y-m-d').' 00:00:00');
+		
+		$insert = $this->Core->insert($this->table_users, $data);
+		
+		# return hash
+		return $hash;
+	}
+	
+	function killAnonTable(){
+		$result = $this->Core->query('TRUNCATE TABLE '.$this->table_users);
+	}
+	
+	function __uniqueHash(){
+		$rand = (rand(0,100000)/2)-100+(rand(5000,10000));
+		$rand = str_replace('a', 2, $rand);
+		$rand = str_replace('Z', 8, $rand);
+		$rand = str_replace('D', 00, $rand);
+		
+		$hash = md5(md5(time().$rand.'-'.$rand.$_SERVER['REMOTE_ADDR'].'-'.$_SERVER['HTTP_USER_AGENT']).$this->secret_hash_key);
+		return $hash;
+	}
+	
+	function login($uid = null) {
+		global $_SESSION;
+		
+		$bb_session = $_SESSION[$this->bb_session_key];
+		
+		#var_dump($bb_session);
+		#echo '<BR>'.$this->reset_flag;
+		#exit();
+		if( !empty($this->reset_flag) && !is_null($uid) ){
+			# reset skey and ukey so we can transfer points to the new user and log them in.
+			unset($_SESSION[$this->bb_session_key]['ukey']);
+			unset($_SESSION[$this->bb_session_key]['skey']);
+			$bb_session['anonymous'] = false;
+		}
+		
+		# check to see if we are anon or a real user - have a session key?
+		/**if( isset( $bb_session['skey'] ) && !empty( $bb_session['skey'] ) && isset( $bb_session['ukey'] ) && !empty( $bb_session['ukey'] )){
+			# already a session set, are they anon
+			if( isset( $bb_session['anonymous'] ) && $bb_session['anonymous'] ){
+				# yes they are anonymous, so lets return our current session key
+				# will be used later
+			} else {
+				# we are not anonymous - so lets return our normal session key
+				# will be used later
+			}
+			# no matter what we have a session key
+			$this->uid = strip_tags($bb_session['ukey']);
+			$this->session_key = strip_tags($bb_session['skey']);
+			return $bb_session['ukey'];
+		}**/
+		# we are not logged in so lets log ourselves in.
+		# are we passing a uid?
+		if( is_null( $uid ) ){
+			# nope - time to go anonymous - stealth mode!
+			$uid = $this->generateAnonymousUid();
+			$_SESSION[$this->bb_session_key]['anonymous'] = true;
+			$_SESSION[$this->bb_session_key]['ukey'] = $uid;
+			$this->uid = $uid;
+			$this->fname = 'Visitor';
+			$this->lname = '';
+		} else { 
+			$_SESSION[$this->bb_session_key]['anonymous'] = false;
+		}
+		
+		$signature = $this->getSignature();
+
+      	$request = $this->connection_url.$this->data_type.'/?'.
+	               "method=user.login".
+	               "&apiKey=".$this->api_key.
+	               "&userId=".$this->uid.
+	               "&ts=".$signature['time'].
+	               "&sig=".$signature['signature'].
+      			   "&firstName=".$this->fname.
+      			   "&lastName=".$this->lname;
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+	    # save the session key
+	    $this->setSessionKey($data->Nitro->Login->sessionKey);
+	    #$_SESSION[$this->bb_session_key]['skey'] = $this->session_key;
+	    $_SESSION[$this->bb_session_key]['ukey'] = $this->uid;
+	    $this->logAction('USR_LOGIN');
+	    $this->setAvatar();
+	    return $this->session_key;     
+	}
+	
+	function avatarLink($return = false){
+		if($return){
+			return "http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$this->uid."/thumb.png?cat=DEFAULT_AVATAR";
+		}else{
+			echo "http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$this->uid."/thumb.png?cat=DEFAULT_AVATAR";
+		}
+	}
+	
+	function avatarLinkUser($uid, $return = false){
+		if($return){
+			return "http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$uid."/thumb.png?cat=DEFAULT_AVATAR";
+		}else{
+			echo "http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$uid."/thumb.png?cat=DEFAULT_AVATAR";
+		}
+	}
+	
+	function profilePicture($uid){
+		return "http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$uid."/full.png?cat=DEFAULT_AVATAR";
+	}
+	
+	function getPreference($uid, $field){
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+			            "method=user.getPreference".
+						"&sessionKey=".$this->getSessionKey().
+						"&name=gigyaID".
+						"&userId=".$uid;
+		$request = file_get_contents($request);
+		$data = json_decode($request);
+	  	if($data->Nitro->res == 'err'){
+			return false;
+		}else{
+			return $data->Nitro->userPreferences->UserPreference->value;
+		}
+	}
+	
+	function getUserActions($uid, $limit = 15){
+		$request = $this->connection_url.$this->data_type.'/?'.
+			            "method=site.getRecentChallenges".
+						"&sessionKey=".$this->getSessionKey().
+						"&userIds=".$uid.
+						"&returnCount=".$limit;
+		
+		$request = file_get_contents($request);
+		$data = json_decode($request);
+	  	if($data->Nitro->res == 'err'){
+			return false;
+		}else{
+			$already_have = array();
+			$already_have_other = array();
+			$last_key = $key;
+			$challenges = array(
+				'count' => 0,
+				'list' => array());
+			$today = date('Y-m-d');
+			foreach($data->Nitro->challenges->Challenge as $key => $challenge){
+				if($today == date('Y-m-d', $challenge->ts)){
+					if(!in_array($challenge->actionPhrase, $already_have)){
+						$challenges['list'][] = $challenge;
+						$challenges['count']++;
+						$already_have[] = $challenge->actionPhrase;	
+					}
+				}
+			}
+			
+			if($challenges['count'] < 5){
+				$diff_count = 5 - $challenges['count'];
+				# add some other days
+				foreach($data->Nitro->challenges->Challenge as $key => $challenge){
+					if($today != date('Y-m-d', $challenge->ts)){
+						if(!in_array($challenge->actionPhrase, $already_have_other)){
+							if($diff_count == 0) break;
+							
+							$challenges['list'][] = $challenge;
+							$challenges['count']++;
+							$already_have_other[] = $challenge->actionPhrase;	
+							$diff_count--;
+						}
+					}
+				}
+			}
+			
+			return $challenges;
+		}
+	}
+	
+	function prizesPurchased($uid){
+		$Core = new Core($this->Config["database:contest-writer"]);
+		$uid = $Core->quote($uid);
+		$query = array(
+			'table' => 'iontv_lounge_orders',
+			'where' => 'uid='.$uid,
+			'select' => 'COUNT(*) AS totalOrders'
+		);
+		$result = $Core->get($query);
+		if(isset($result['totalOrders'])){
+			return $result['totalOrders'];
+		}
+		return null;
+	}
+	
+	function getProfile($uid){
+		$Gigya = new Gigya;
+		$lounge_room = new LoungeRoom;
+		
+		if(empty($uid))
+			return false;
+		
+		$uid = trim(strip_tags($uid));
+		
+		$lounge_url = 'http://dynamic.bunchball.net/assets/canvas/'.$this->canvasPicture($uid);
+		$latest_lounge = $lounge_room->latestRoom($uid);
+		if($latest_lounge){
+			$lounge_url = $latest_lounge;
+		}
+		
+		$points = $this->getPointsProfile($uid);
+		$points_today = $this->getPointsProfile($uid, strtotime(date('Y-m-d 00:00:00')));
+		$profile['UID'] = $uid;
+		$profile['avatar'] = $this->profilePicture($uid);
+		$profile['gigyaID'] = $this->getPreference($uid, 'gigyaID');
+		$profile['activity'] = $this->getUserActions($uid, 25);
+		$profile['points'] = $points->lifetimeBalance;
+		$profile['lounge_room'] = $lounge_url;
+		$profile['points_today'] = $points_today->points;
+		$profile['points_total'] = $points->points;
+		$profile['prizes_purchased'] = $this->prizesPurchased($profile['gigyaID']);
+		#$profile['activity'] = $this->getUserActions($uid);
+
+		# pull from Gigya
+		$profile['gigya'] = $Gigya->getProfile($profile['gigyaID']);
+		#$profile['comments'] = $Gigya->makeCall('comments.getUserComments', array('UID' => $profile['gigyaID']));
+		$profile['comments'] = $Gigya->getComments($profile['gigyaID'], 5);
+		#$profile['reactions'] = $Gigya->makeCall('socialize.getFeed', array('UID' => $profile['gigyaID']));
+		
+		return $profile;
+	}
+	
+	function getSmallProfile($uid, $extra_small = false){
+		$Gigya = new Gigya;
+	
+		if(empty($uid))
+			return false;
+		
+		$uid = trim(strip_tags($uid));
+		$points_today = $this->getPointsProfile($uid, strtotime(date('Y-m-d 00:00:00')));
+		$points = $this->getPointsProfile($uid);
+		if($extra_small){
+			$profile['UID'] = $uid;
+			$profile['avatar'] = $this->avatarLinkUser($uid, true);
+			$profile['avatar_large'] = $this->profilePicture($uid);
+			$profile['points'] = $points->points;
+			$profile['points_today'] = $points_today->points;
+		}else{
+			$profile['UID'] = $uid;
+			$profile['avatar'] = $this->avatarLinkUser($uid, true);
+			$profile['avatar_large'] = $this->profilePicture($uid);
+			$profile['gigyaID'] = $this->getPreference($uid, 'gigyaID');
+			$profile['points'] = $points->points;
+			$profile['points_today'] = $points_today->points;
+			$profile['gigya'] = $Gigya->getProfile($profile['gigyaID'], true);	
+		}
+
+		return $profile;
+	}
+	
+	function canvasPicture($uid){
+		return $this->api_key.'/'.$uid.'.jpg?cat=MODERN_LOUNGE';
+	}
+	
+	function setAvatar(){
+		$Gigya = new Gigya;
+		
+		$bb_session = $_SESSION[$this->bb_session_key];
+		
+		if($bb_session['anonymous']){
+			return false;
+		}
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+		            "method=user.setPreference".
+					"&sessionKey=".$this->getSessionKey().
+					"&name=userPhotoUrl".
+					"&value=http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$this->getUID().'/thumb.png?cat=DEFAULT_AVATAR';
+		$request = file_get_contents($request);
+	    $data = json_decode($request);
+		if($data->Nitro->res == 'err'){
+			return false;
+		}else{
+			# all good, lets update Gigya as well
+			$Gigya->updateAvatar("http://dynamic.bunchball.net/assets/avcat/".$this->api_key.'/'.$this->getUID()."/thumb.png?cat=DEFAULT_AVATAR");
+			return true;
+		
+		}
+	}
+
+	function setNewLogin($data){
+		$check_uid = md5($data['uid']);
+
+		$this->uid = $check_uid;
+		#$this->uid = base64_encode($data['uid']);
+		#$this->uid = $data['uid'];
+		
+		$this->fname = $data['nickname'];
+		
+		# reset sessions
+		$this->reset_flag = $_SESSION[$this->bb_session_key]['ukey'];
+
+		# invoke actual login
+		$session_key = $this->login($this->uid);
+		
+		# check to see if there is a provider we need to track
+		if(isset($data['provider']) && in_array($data['provider'], $this->provider_whitelist)){
+			# good provider - call action
+			$this->logAction('LOGIN_'.strtoupper($data['provider']));
+		}
+		
+		if( !empty( $session_key ) || $session_key){
+			# log is good, save gigya ID
+			 # set gigya ID
+		    $request = $this->connection_url.$this->data_type.'/?'.
+			            "method=user.setPreference".
+						"&sessionKey=".$this->session_key.
+						"&name=gigyaID".
+						"&value=".$data['uid'];
+			$request = file_get_contents($request);
+		
+			# check for point transfer
+			/**if( !empty($this->reset_flag) ){
+				$request = $this->connection_url.$this->data_type.'/?'.
+		            "method=user.transferPoints".
+					"&srcUserId=".$this->reset_flag.
+					"&destUserId=".$this->uid.
+					"&sessionKey=".$this->session_key;
+	
+		      	$request = file_get_contents($request);
+			    $data = json_decode($request);
+			  	$this->reset_flag = '';
+				if($data->Nitro->res == 'err'){
+					return false;
+				}else{
+					return true;
+				}
+			}**/
+		}
+	}
+	
+	function getPoints(){
+		
+		$uid = $this->getUID();
+		$session_key = $this->getSessionKey();
+		
+		if( empty( $uid ) || empty( $session_key ) ){
+			return false;			
+		}
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+	               "method=user.getPointsBalance".
+	               "&sessionKey=".$session_key;
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+	    return $data->Nitro->Balance->points;
+	}
+	
+	function getPointsProfile($uid, $today = null){
+		if(empty($uid)) return false;
+		if(!is_null($today)){
+			$today = '&start='.$today;
+		}else{
+			$today = '';
+		}
+		$request = $this->connection_url.$this->data_type.'/?'.
+	               "method=user.getPointsBalance".
+	               "&sessionKey=".$this->getSessionKey().
+				   "&userId=".$uid.$today;
+      	$request = file_get_contents($request);
+      	$data = json_decode($request);
+		return $data->Nitro->Balance;
+	}
+
+	function debitPoints($points=NULL){
+		
+		$uid = $this->getUID();
+		$session_key = $this->getSessionKey();
+		
+		if( empty( $uid ) || empty( $session_key ) || empty( $points ) ){
+			return false;			
+		}
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+	               "method=user.debitPoints".
+				   "&points=".$points.
+	               "&sessionKey=".$session_key;
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+		return $data->Nitro->User->points;	
+	}
+	
+	# TODO: Whitelist actions?
+	# TODO: Base security, only alpha chars - not sure if we will use numbers or other entities in our naming
+	function logAction($action, $meta=NULL, $points = NULL){
+		
+		$uid = $this->getUID();
+		$sessionKey = $this->getSessionKey();
+		
+		if( empty( $uid ) || empty( $sessionKey ) ){
+			return false;			
+		}
+		
+		if( is_array( $action ) ){
+			$action = implode(',', $action);
+		}
+		
+		if(!is_null($meta)){
+			$meta = "&metadata=".$meta;
+		} else {
+			$meta = "";	
+		}
+		
+		if(!is_null($points)){
+			$points = "&value=".(int)$points;
+		} else {
+			$points = "";	
+		}
+		
+		if($this->isAnonymous()){
+			return false;
+		}
+		
+		# is ION lounge on?
+		if(!$this->loungeIsActive()){
+			return false;
+		}
+		
+		# generic user?
+		if( $uid == md5($this->generic_id) ){
+			return false;
+		} 
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+	            "method=user.logAction".
+				"&userId=".$this->getUID().
+				"&sessionKey=".$this->getSessionKey().
+				$meta.
+				$points.
+				"&tags=".$action;
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+	    
+		if($data->Nitro->res == 'err'){
+			return false;
+		}else{
+			return true;
+		}
+	}
+	
+	function logActionUser($action, $user){
+		
+		if( is_array( $action ) ){
+			$action = implode(',', $action);
+		}
+		
+		# is ION lounge on?
+		if(!$this->loungeIsActive()){
+			return false;
+		}
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+	            "method=user.logAction".
+				"&userId=".$user.
+				"&sessionKey=".$this->getSessionKey().
+				"&tags=".$action;
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+	    
+		if($data->Nitro->res == 'err'){
+			return false;
+		}else{
+			return true;
+		}
+	}
+	
+	function storePurchase($data){
+		# a purchase callback has come in, lets store it and match it with a gigya user.
+		$d['uid'] = $data['userId'];
+		$d['items'] = $data['items'];
+		$d['purchase_date'] = date("Y-m-d", time());
+		
+		$request = $this->connection_url.$this->data_type.'/?'.
+	               "method=user.getPreference".
+	               "&sessionKey=".$this->getSessionKey().
+				   "&userId=".$data['userId'].
+				   "&name=firstName";
+      	$request = file_get_contents($request);
+	    $data = json_decode($request);
+	    if($data->Nitro->res == 'err'){
+	    	# error with Nitro, so just store their Nitro id
+	    	$d['gigya_uid'] = $d['uid'];
+	    }else{
+	    	$d['gigya_uid'] = $data->Nitro->userPreferences->UserPreference->value;	
+	    }
+	    
+		# save this to a db
+		$insert = $this->Core->insert('gaming_purchases', $d);
+	
+		# send an email.
+		# not sure if we have a set place for this but it should notify someone!	
+	}
+	
+	function loungeIsActive(){
+		if( !isset($this->Core) ){
+			# connect another way?
+			return true;
+		}else{
+			$check = $this->Core->get(array('table' => 'site_settings', 'where' => 'setting_key=\'lounge_active\'', 'select' => 'value'));
+			if($check['value'] == '1'){
+				return true;
+			}
+			return false;
+		}
+	}
+	
+}
+
+?>

@@ -1,0 +1,10 @@
+composer.lock
+/vendor
+/node_modules
+Homestead.yaml
+.env
+public/uploads/
+storage/brightcove/
+public/build/css/
+public/build/css/admin.css.map
+php.bat

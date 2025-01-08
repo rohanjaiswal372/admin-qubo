@@ -1,0 +1,230 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+body {
+	background: #a6a627 url(../images/login/bg.png) repeat;
+	color: #ffffff;
+	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+}
+#header {
+	z-index: 100;
+}
+.stage {
+	height: 358px;
+	left: 0;
+	min-width: 900px;
+	overflow: hidden;
+	position: absolute;
+	top: 0;
+	width: 100%;
+}
+#sky {
+	background: url(../images/login/sky.png) 0 0 repeat-x;
+	z-index: 0;
+}
+#sky2 {
+	background: url(../images/login/sky2.png) 0 0 repeat-x;
+	z-index: -1;
+}
+#sun {
+	background: url(../images/login/sun.png) -450px 0 no-repeat;
+	z-index: 0;
+}
+#cloud {
+	background: url(../images/login/cloud.png) 0 0 repeat-x;
+	z-index: -1;
+}
+#hill2 {
+	background: url(../images/login/hill2.png) 0 264px repeat-x;
+}
+#hill {
+	background: url(../images/login/hill.png) 0 264px repeat-x;
+}
+
+#description {
+	color: #333333;
+	font-family: 'Chunk', sans-serif;
+	font-size: 1.5em;
+	padding-left: 5px;
+	position: relative;
+	text-shadow: #ffffff 1px 1px 1px;
+}
+#bird {
+	left: 50%!important;
+	margin-left:-61px;
+	position: absolute;
+	top: 100px;
+	z-index: 2000;
+}
+#main {
+	background: url(../images/bg2.png) repeat-x;
+	min-height: 200px;
+	min-width: 900px;
+	position: relative;
+	top: 358px;
+}
+#content {
+	margin: 0 auto;
+	padding-top: 10px;
+	width: 900px;
+}
+#about {
+	color: #333333;
+	font-family: 'Junction', sans-serif;
+	font-size: 1.5em;
+	text-shadow: #ffffff 1px 1px 1px;
+}
+#about span {
+	color: #ffffff;
+	font-family: 'Chunk', sans-serif;
+	font-size: 1.8em;
+	text-shadow: #333333 2px 2px 1px;
+}
+#services, #contact {
+	font-family: 'Junction', sans-serif;
+	font-size: 1.5em;
+	margin-top: 20px;
+}
+#services ul {
+	color: #333333;
+	font-size: .8em;
+	margin-left: 18px;
+}
+#services li {
+	padding-top: 5px;
+}
+#contact p {
+	padding-bottom: 10px;
+}
+#me {
+	border-right: 2px dashed #ffffff;
+	color: #333333;
+	float: left;
+	font-size: .8em;
+	padding-right: 40px;
+	width: 150px;
+}
+#me img {
+	-moz-transition: -moz-transform .5s linear;
+	-o-transition: -o-transform .5s linear;
+	-webkit-transition: -webkit-transform .5s linear;
+}
+#me img:hover {
+	-moz-transform: translate(10px);
+	-o-transform: translate(10px);
+	-webkit-transform: translate(10px);
+}
+#legend, #contact form, #testimonial {
+	color: #333333;
+	float: left;
+	font-family: 'Junction', sans-serif;
+	font-size: .8em;
+	margin-left: 40px;
+	width: 668px;
+}
+#contact form {
+	line-height: 2.2em;
+	margin-top: 20px;
+}
+#contact form input, #contact form textarea {
+	background: none;
+	color: #ffffff;
+	font-family: 'Junction', sans-serif;
+	font-size: 1.1em;
+}
+#contact form input {
+	border: none;
+	border-bottom: 2px dashed #ffffff;
+	text-align: center;
+}
+#contact form textarea {
+	border: 2px dashed #ffffff;
+	border-radius: 20px;
+	padding: 10px;
+	-moz-border-radius: 20px;
+	-webkit-border-radius: 20px;
+}
+#contact form input.submit {
+	border: none;
+	color: #dc3522;
+	cursor: pointer;
+	font-size: 1.5em;
+	text-shadow: #333333 1px 1px 1px;
+}
+#testimonial {
+	font-size: .6em;
+	margin-top: 10px;
+}
+#spacer {
+	height: 40px;
+}
+#footer {
+	font-family: 'Junction', sans-serif;
+	font-size: .9em;
+	padding: 5px;
+	text-shadow: #333333 1px 1px 1px;
+}
+#footer a {
+	color: #ffffff;
+	text-decoration: none;
+}
+#footer a:hover {
+	text-decoration: underline;
+}
+.clear {
+	clear: both;
+}
+#alert, #tooltip {
+	background-color: #333333;
+	border-radius: 10px;
+	box-shadow: 2px 2px 1px #000000;
+	display: none;
+	font-family: 'Junction', sans-serif;
+	padding: 5px;
+	position: absolute;
+	text-shadow: #777777 1px 1px 1px, #777777 2px 2px 1px;
+	z-index: 9999;
+	-moz-border-radius: 10px;
+	-moz-box-shadow: 2px 2px 1px #000000;
+	-webkit-border-radius: 10px;
+	-webkit-box-shadow: 2px 2px 1px #000000;
+}
+
+.login-container{
+position:absolute;width:500px;top:50%;left:50%;margin-left:-250px;z-index:+9999;	
+}
+.form-signin {
+  max-width: 330px;
+  padding: 15px;
+  margin: 0 auto;
+}
+.form-signin .form-signin-heading,
+.form-signin .checkbox {
+  margin-bottom: 10px;
+}
+.form-signin .checkbox {
+  font-weight: normal;
+}
+.form-signin .form-control {
+  position: relative;
+  height: auto;
+  -webkit-box-sizing: border-box;
+     -moz-box-sizing: border-box;
+          box-sizing: border-box;
+  padding: 10px;
+  font-size: 16px;
+}
+.form-signin .form-control:focus {
+  z-index: 2;
+}
+.form-signin input[type="email"] {
+  margin-bottom: -1px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.form-signin input[type="password"] {
+  margin-bottom: 10px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}

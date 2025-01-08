@@ -1,0 +1,8 @@
+Array
+(
+    [Filename] => Party City Vignette-PinataF1.mp4
+    [folder] => /assets/temp/
+    [fileext] => *.mp4
+    [Upload] => Submit Query
+    [PHPSESSID] => jjem1lmqn7ot2afv25rlukl3l0
+)
