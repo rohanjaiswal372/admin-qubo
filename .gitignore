@@ -8,3 +8,4 @@ storage/brightcove/
 public/build/css/
 public/build/css/admin.css.map
 php.bat
+.env
