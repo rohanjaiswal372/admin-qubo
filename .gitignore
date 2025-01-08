@@ -9,3 +9,7 @@ public/build/css/
 public/build/css/admin.css.map
 php.bat
 .env
+readme.md
+web.config
+server.php
+.DS_Store
